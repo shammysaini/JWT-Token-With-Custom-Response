@@ -73,5 +73,15 @@ public class JwtUtils {
 				.getPayload();
 	}
 
-
+	public boolean isTokenExpired(String token) {
+		try {
+			Claims claims = getClaims(token);
+			Date expirationDate = claims.getExpiration();
+			log.info("Token Expiration Date: {}", expirationDate);
+			return expirationDate.before(new Date());
+		} catch (JwtException | IllegalArgumentException e) {
+			log.error("Failed to extract expiration date: {}", e.getMessage());
+			return true; // Treat invalid tokens as expired
+		}
+	}
 }

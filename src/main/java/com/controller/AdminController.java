@@ -14,6 +14,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/admin")
@@ -23,6 +25,7 @@ public class AdminController {
     private final BloggerService bloggerService;
     private final AuthService authService;
     private final JwtUtils jwtUtils;
+    private static final Set<String> tokenBlacklist = ConcurrentHashMap.newKeySet();
 
     public AdminController(BloggerService bloggerService, AuthService authService, JwtUtils jwtUtils) {
         this.bloggerService = bloggerService;
@@ -78,6 +81,32 @@ public class AdminController {
         return new ResponseEntity<>(response, HttpStatus.OK);
 
     }
+    @PostMapping("/logout")
+    public ResponseEntity<CommonResponse<String>> logoutUser(@RequestHeader("Authorization") String token) {
+        CommonResponse<String> commonResponse;
+        if (token == null || !token.startsWith("Bearer ")) {
+            return ResponseEntity.badRequest().body(new CommonResponse<>(false, "Invalid token", HttpStatus.BAD_REQUEST.value(), null));
+        }
+            token = token.substring(7).trim(); // Trim extra spaces
+            log.info("Token after trimming: {}", token);
+
+            if (jwtUtils.isTokenExpired(token)) {
+                commonResponse = new CommonResponse<>(false, "Token is already expired",
+                        HttpStatus.BAD_REQUEST.value(),null);
+                return ResponseEntity.badRequest().body(commonResponse);
+            }
+
+            if (!jwtUtils.validateToken(token)) {
+                tokenBlacklist.add(token);
+                commonResponse = new CommonResponse<>(false, "Invalid Token",
+                        HttpStatus.BAD_REQUEST.value(),null);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(commonResponse);
+            }
+        tokenBlacklist.add(token);
+
+        commonResponse = new CommonResponse<>(true, "User logged out successfully", HttpStatus.OK.value(), null);
+        return ResponseEntity.ok(commonResponse);
+        }
 
 }
 
